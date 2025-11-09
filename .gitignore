@@ -1,5 +1,6 @@
 # Ignore files starting with "model"
-
+models*/
+static/videos*/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
