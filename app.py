@@ -8,7 +8,7 @@ import os
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 load_dotenv()
 app.register_blueprint(video_routes)
 
