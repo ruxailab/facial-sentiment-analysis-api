@@ -8,13 +8,34 @@ This Flask API serves as the backend for the RuxaiLab Bachelor's thesis project,
 - **Facial Emotion Detection:** Utilizes a pre-trained model to analyze emotions in video frames.
 - **Firebase Integration:** User authentication and storage are managed through Firebase, ensuring secure access to the API.
 - **Logging:** Utilizes Python's logging module for informational and error messages.
+  
+## Environment / Versions
+- Python: 3.12
+- Poetry: 1.8.x
+- TensorFlow (CPU): 2.18.0
+- Keras: 3.3.3
+- OpenCV: 4.9.0
+- Flask: 3.0.3
+- Firebase Admin SDK: 6.5.0
+  
+## Project Structure
+```
+backend/
+│ app.py
+│ model_loader.py
+│ firebase_service.py
+│ video_processor.py
+│ requirements.txt (gerado só se necessário)
+│ .env
+└─ models/
+```
 
 ## Setup
 1. Clone the repository: `git clone https://github.com/your-username/ruxailab-facial-emotion-api.git`
 2. Install Poetry (if not already installed): [Poetry Installation Guide](https://python-poetry.org/docs/#installation)
 3. Install dependencies: `poetry install`
 4. Configure Firebase:
-5. Start the API: `poetry run python app.py`
+5. Start the API: `poetry run python -u app.py`
 
 ## Usage
 ### Uploading a Video
