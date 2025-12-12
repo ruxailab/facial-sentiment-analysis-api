@@ -31,11 +31,49 @@ backend/
 ```
 
 ## Setup
-1. Clone the repository: `git clone https://github.com/your-username/ruxailab-facial-emotion-api.git`
-2. Install Poetry (if not already installed): [Poetry Installation Guide](https://python-poetry.org/docs/#installation)
-3. Install dependencies: `poetry install`
-4. Configure Firebase:
-5. Start the API: `poetry run python -u app.py`
+#### 1. Clone the repository
+```
+git clone https://github.com/your-username/ruxailab-facial-emotion-api.git
+```
+
+#### 2. Install Poetry (if not installed)
+https://python-poetry.org/docs/#installation
+
+#### 3. Install dependencies
+```
+poetry install
+```
+
+### 4. Firebase Configuration (Required)
+
+---
+
+##### 4.1 Storage Bucket
+1. Open **Firebase Console → Storage**  
+2. Copy your bucket name (e.g. `project-id.appspot.com`)  
+3. Add it to your `.env` file:
+```
+STORAGE_BUCKET=your-bucket-here
+```
+
+##### 4.2 Admin SDK Credentials
+1. Go to **Firebase Console → Project Settings → Service Accounts**  
+2. Select **Python**  
+3. Click **Generate new private key**  
+4. Download the JSON file  
+5. Move it to the project root and rename it to:
+```
+service-account.json
+```
+
+ This file is required for all Firebase Admin SDK operations.
+
+---
+
+#### 5. Start the API
+```
+poetry run python -u app.py
+```
 
 ## Usage
 ### Uploading a Video
