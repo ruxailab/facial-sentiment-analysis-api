@@ -1,0 +1,19 @@
+# Ignore files starting with "model"
+models*/
+static/videos*/
+
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+firebase/*.json
+
+# Other files and directories to ignore
+node_modules/
+.DS_Store
+.env
+.idea/
+service-account.json
+*.mp4
