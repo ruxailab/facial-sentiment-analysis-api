@@ -1,33 +1,32 @@
-# Use the official Python image from the Docker Hub
-FROM python:3.12-slim
+FROM python:3.10-slim
 
-# Set the working directory in the container
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    TF_CPP_MIN_LOG_LEVEL=2 \
+    OMP_NUM_THREADS=1 \
+    TF_NUM_INTEROP_THREADS=1 \
+    TF_NUM_INTRAOP_THREADS=1
+
 WORKDIR /app
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
+    ffmpeg \
+    build-essential \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN pip install poetry
+RUN pip install --no-cache-dir poetry
 
-# Copy only the pyproject.toml and poetry.lock files to the container
 COPY pyproject.toml poetry.lock* ./
 
-# Install dependencies using Poetry
-RUN poetry config virtualenvs.create false && poetry install --only main
+RUN poetry config virtualenvs.create false \
+    && poetry install --only main --no-interaction --no-ansi
 
-# Copy the rest of the application code
 COPY . .
 
-# Make port 8080 available to the world outside this container
+ENV PORT=8080
 EXPOSE 8080
 
-# Define environment variable
-ENV FLASK_APP=app.py
-
-# Run the application with gunicorn
-CMD ["gunicorn", "-b", ":8080", "--workers", "1", "--timeout", "300", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "1", "--timeout", "0", "app:app"]

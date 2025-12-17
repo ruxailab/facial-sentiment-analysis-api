@@ -65,9 +65,12 @@ def download_and_analyze_video(video_name):
 
     return result  # retorna o objeto de emoções diretamente
 
-@video_routes.route("/process_video", methods=["POST"])
+@video_routes.route("/process_video", methods=["POST", "OPTIONS"])
 def process_video():
-    start = time.time()
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     video_name = request.json.get("video_name")
     if not video_name:
         return jsonify({"error": "Video name missing"}), 400
@@ -76,12 +79,11 @@ def process_video():
         result = download_and_analyze_video(video_name)
         delete_video()
     except Exception as e:
-        logger.exception(f"Video processing failed: {e}")
+        logger.exception("Video processing failed")
         return jsonify({"error": "Video processing failed"}), 500
 
-    end = time.time()
-    logger.info(f"Video processed in {end-start:.2f}s")
     return jsonify({"emotions": result}), 200
+
 
 @video_routes.route("/test", methods=["GET"])
 def call_hello_world():
