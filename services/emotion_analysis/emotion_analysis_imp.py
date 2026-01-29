@@ -34,9 +34,9 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
             self.logger.error(f"Failed to open video file: {video_path}")
             return GetEmotionPercentagesResponse(Angry=0, Disgusted=0, Fearful=0, Happy=0, Neutral=0, Sad=0, Surprised=0)
 
-        fps = int(video.get(cv2.CAP_PROP_FPS)) or 30
-        frame_skip = fps  # 1 frame por segundo
+        last_processed_second = -1
 
+    
         frame_count = 0
         processed_frames = 0
         face_count = 0
@@ -45,10 +45,15 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
             ret, im = video.read()
             if not ret:
                 break
-            frame_count += 1
 
-            if frame_count % frame_skip != 0:
-                continue  # pula frames intermediários
+            timestamp_ms = video.get(cv2.CAP_PROP_POS_MSEC)
+            current_second = int(timestamp_ms / 500 ) # 2 frame per second 
+
+            if current_second == last_processed_second:
+                continue
+            last_processed_second = current_second
+            
+            frame_count += 1
 
             processed_frames += 1
             gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
@@ -61,6 +66,7 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
                     img = extract_features(image)
                     pred = predict_emotion(self.model, img)
                     prediction_label = labels[pred.argmax()]
+                    self.logger.info(f"Prediction for frame {frame_count}: {prediction_label}")
                     predictions.append(prediction_label)
             except cv2.error as e:
                 self.logger.error(f"OpenCV error: {e}")
