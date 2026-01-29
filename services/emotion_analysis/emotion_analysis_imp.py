@@ -34,9 +34,17 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
             self.logger.error(f"Failed to open video file: {video_path}")
             return GetEmotionPercentagesResponse(Angry=0, Disgusted=0, Fearful=0, Happy=0, Neutral=0, Sad=0, Surprised=0)
 
-        fps = int(video.get(cv2.CAP_PROP_FPS)) or 30
-        frame_skip = fps  # 1 frame por segundo
-
+        # fps = int(video.get(cv2.CAP_PROP_FPS)) or 30
+        # frame_skip = fps  # 1 frame por segundo
+        # total frames hint
+        total_frames_hint = int(video.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        # number of frames to process
+        TARGET_SAMPLES = 30
+        if total_frames_hint > 0:
+            frame_step = max(1, total_frames_hint // TARGET_SAMPLES)
+        else:
+            frame_step = 30
+    
         frame_count = 0
         processed_frames = 0
         face_count = 0
@@ -46,9 +54,9 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
             if not ret:
                 break
             frame_count += 1
-
-            if frame_count % frame_skip != 0:
-                continue  # pula frames intermediários
+            # ensure to take at least one frame
+            if (frame_count - 1) % frame_step != 0:
+                continue
 
             processed_frames += 1
             gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
