@@ -1,8 +1,9 @@
+import os
 import firebase_admin
 import logging
 import coloredlogs
 
-from firebase_admin import firestore, storage
+from firebase_admin import firestore, storage, credentials
 from services.data.firebase_service import FirebaseService
 
 
@@ -25,7 +26,10 @@ class FirebaseImp(FirebaseService):
 
     def _initialize_app(self):
         if not firebase_admin._apps:
+            cred_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS', 'service-account.json')
+            cred = credentials.Certificate(cred_path)
             firebase_admin.initialize_app(
+                cred,
                 options={
                     "storageBucket": self.storage_bucket
                 }

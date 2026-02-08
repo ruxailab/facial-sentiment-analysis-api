@@ -47,8 +47,13 @@ poetry install
 ### 4. Firebase Configuration (Required)
 
 ---
+##### 4.1 Create .env
 
-##### 4.1 Storage Bucket
+```
+cp .env.example .env
+```
+
+##### 4.2 Storage Bucket
 1. Open **Firebase Console → Storage**  
 2. Copy your bucket name (e.g. `project-id.appspot.com`)  
 3. Add it to your `.env` file:
@@ -56,7 +61,7 @@ poetry install
 STORAGE_BUCKET=your-bucket-here
 ```
 
-##### 4.2 Admin SDK Credentials
+##### 4.3 Admin SDK Credentials
 1. Go to **Firebase Console → Project Settings → Service Accounts**  
 2. Select **Python**  
 3. Click **Generate new private key**  
