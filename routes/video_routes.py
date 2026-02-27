@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 import logging
 from services.data.firebase_imp import FirebaseImp
 from services.emotion_analysis.emotion_analysis_imp import EmotionsAnalysisImp
+from services.metrics.emotion_intensity import compute_intensity_metrics
 from utils.utils import delete_video
 import time
 from dotenv import load_dotenv
@@ -85,6 +86,48 @@ def process_video():
         return jsonify({"error": "Video processing failed"}), 500
 
     return jsonify({"emotions": result}), 200
+
+
+@video_routes.route("/process_video_metrics", methods=["POST", "OPTIONS"])
+def process_video_metrics():
+    """Analyze a video and return emotion intensity metrics.
+
+    This endpoint performs the standard emotion analysis and then
+    computes derived intensity metrics including:
+
+    - **valence_score** [-1, +1]: overall positivity vs. negativity
+    - **arousal_score** [0, 1]: emotional activation level
+    - **diversity_index** [0, 1]: Shannon entropy-based emotion spread
+    - **dominant_emotion**: the top detected emotion
+    - **dominance_ratio**: strength of the dominant emotion vs. runner-up
+    - **interpretation**: brief human-readable explanation
+
+    Request JSON body:
+        ``{ "video_name": "<name-in-firebase-storage>" }``
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+
+    video_name = request.json.get("video_name")
+    if not video_name:
+        return jsonify({"error": "Video name missing"}), 400
+
+    try:
+        result = download_and_analyze_video(video_name)
+        delete_video()
+    except Exception as e:
+        logger.exception("Video processing failed")
+        return jsonify({"error": "Video processing failed"}), 500
+
+    if result is None:
+        return jsonify({"error": "Analysis returned no results"}), 500
+
+    metrics = compute_intensity_metrics(result)
+
+    return jsonify({
+        "emotions": result,
+        "intensity_metrics": metrics.to_dict(),
+    }), 200
 
 
 @video_routes.route("/test", methods=["GET"])
