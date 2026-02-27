@@ -87,6 +87,79 @@ def process_video():
     return jsonify({"emotions": result}), 200
 
 
+def _download_and_prepare_video(video_name: str):
+    """Download a video from Firebase Storage and prepare it for analysis.
+
+    Returns the local file path to the (optionally trimmed) video,
+    or *None* when the download fails.
+    """
+    logger.info(f"Attempting to download video: {video_name} from storage.")
+    try:
+        os.makedirs("static/videos", exist_ok=True)
+        video_path = firebase_service.download_video_from_storage(video_name)
+        logger.info(f"Video downloaded successfully to: {video_path}")
+    except Exception as e:
+        logger.error(f"Failed to download video: {e}")
+        return None
+
+    # Reduce FPS when needed
+    try:
+        clip = VideoFileClip(video_path)
+        if clip.fps > 1:
+            logger.warning(f"High FPS detected ({clip.fps}). Reducing to 1fps.")
+            clip = clip.set_fps(1)
+        trimmed_path = video_path.replace(".webm", "_trimmed.mp4")
+        clip.write_videofile(trimmed_path, codec="libx264", audio=False, logger=None)
+        video_path = trimmed_path
+        logger.info(f"Trimmed video saved: {video_path}")
+    except Exception as e:
+        logger.warning(f"Failed to trim video, continuing anyway: {e}")
+
+    return video_path
+
+
+@video_routes.route("/process_video_standardized", methods=["POST", "OPTIONS"])
+def process_video_standardized():
+    """Analyze a video and return a **standardized** emotion output.
+
+    The response follows the ``StandardizedEmotionOutput`` schema which
+    includes analysis metadata, a chronological timeline of per-frame
+    emotion events (with confidence scores), and an aggregated summary.
+
+    Request JSON body:
+        ``{ "video_name": "<name-in-firebase-storage>" }``
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+
+    video_name = request.json.get("video_name")
+    if not video_name:
+        return jsonify({"error": "Video name missing"}), 400
+
+    try:
+        video_path = _download_and_prepare_video(video_name)
+        if video_path is None:
+            return jsonify({"error": "Failed to download video"}), 500
+
+        emotion_analysis_service = EmotionsAnalysisImp(
+            model_path="models/model2/model2.h5"
+        )
+
+        start_analysis = time.time()
+        result = emotion_analysis_service.get_standardized_output(
+            video_path, video_name=video_name
+        )
+        elapsed = time.time() - start_analysis
+        logger.info(f"Standardized analysis completed in {elapsed:.2f}s")
+
+        delete_video()
+    except Exception as e:
+        logger.exception("Standardized video processing failed")
+        return jsonify({"error": "Video processing failed"}), 500
+
+    return jsonify(result.model_dump()), 200
+
+
 @video_routes.route("/test", methods=["GET"])
 def call_hello_world():
     logger.info("Attempting to call test firebase function.")
