@@ -12,13 +12,15 @@ app = Flask(__name__)
 
 CORS(
     app,
-    resources={r"/*": {
-        "origins": [
-            "http://localhost:8080",
-            "https://facial-emotion-api-990683238789.us-central1.run.app"
-        ]
-    }},
-    supports_credentials=True
+    resources={
+        r"/*": {
+            "origins": [
+                "http://localhost:8080",
+                "https://facial-emotion-api-990683238789.us-central1.run.app",
+            ]
+        }
+    },
+    supports_credentials=True,
 )
 
 app.register_blueprint(video_routes)
@@ -27,8 +29,7 @@ app.config["DEBUG"] = os.environ.get("FLASK_DEBUG", False)
 
 if __name__ == "__main__":
     coloredlogs.install(
-        level="INFO",
-        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        level="INFO", fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
     logger = logging.getLogger(__name__)

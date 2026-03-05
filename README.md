@@ -12,7 +12,7 @@ This Flask API serves as the backend for the RuxaiLab Bachelor's thesis project,
 ## Environment / Versions
 - Python: 3.12
 - Poetry: 1.8.x
-- TensorFlow (CPU): 2.18.0
+- TensorFlow : 2.18.0
 - Keras: 3.3.3
 - OpenCV: 4.9.0
 - Flask: 3.0.3
