@@ -1,17 +1,25 @@
 import os
-from schemas.emotion_schema import GetEmotionPercentagesResponse
-from services.emotion_analysis.emotion_analysis_service import EmotionsAnalysisService
+import cv2
 import logging
 import coloredlogs
+import numpy as np
+from insightface.app import FaceAnalysis
+from schemas.emotion_schema import GetEmotionPercentagesResponse
+from services.emotion_analysis.emotion_analysis_service import EmotionsAnalysisService
 from utils.utils import load_model, load_face_cascade, extract_features, predict_emotion, getPercentages
-import cv2
+
+coloredlogs.install(level="INFO", fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 class EmotionsAnalysisImp(EmotionsAnalysisService):
     def __init__(self, model_path: str):
-        self.model = load_model(model_path)
-        self.face_cascade = load_face_cascade()
-        coloredlogs.install(level="INFO", fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         self.logger = logging.getLogger(__name__)
+        self.model = load_model(model_path)
+        try:
+            self.scrfd_model = FaceAnalysis(name='buffalo_s', providers=['CPUExecutionProvider'])
+            self.scrfd_model.prepare(ctx_id=0, det_size=(640,640))
+            self.logger.info("SCRFD Face detector loaded successfully (buffalo_s)")
+        except Exception as e:
+            self.logger.error(f"Failed to load SCRFD face detector: {e}")
 
     def get_emotion_percentages(self, video_path: str) -> GetEmotionPercentagesResponse:
         predictions = []
@@ -36,41 +44,57 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
 
         last_processed_second = -1
 
-    
         frame_count = 0
         processed_frames = 0
         face_count = 0
 
         while True:
-            ret, im = video.read()
+            ret, frame = video.read()
             if not ret:
                 break
 
             timestamp_ms = video.get(cv2.CAP_PROP_POS_MSEC)
-            current_second = int(timestamp_ms / 500 ) # 2 frame per second 
-
+            current_second = int(timestamp_ms / 500)  # 2 frames per second
             if current_second == last_processed_second:
                 continue
             last_processed_second = current_second
-            
-            frame_count += 1
 
+            frame_count += 1
             processed_frames += 1
-            gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-            faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
-            try:
-                for (p, q, r, s) in faces:
-                    face_count += 1
-                    image = gray[q:q + s, p:p + r]
-                    image = cv2.resize(image, (48, 48))
-                    img = extract_features(image)
+
+            scale_factor = 1.5
+            frame = cv2.resize(frame, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_CUBIC)
+            
+            faces = self.scrfd_model.get(frame)
+            
+            for face in faces:
+                x1, y1, x2, y2 = face.bbox.astype(int)
+                det_score = getattr(face, 'det_score', 0)
+                if det_score < 0.5:
+                    continue
+
+                margin_w = int((x2 - x1) * 0.4)
+                margin_h = int((y2 - y1) * 0.4)
+                x1_new = max(0, x1 - margin_w)
+                y1_new = max(0, y1 - margin_h)
+                x2_new = min(frame.shape[1], x2 + margin_w)
+                y2_new = min(frame.shape[0], y2 + margin_h)
+
+                face_count += 1
+                face_crop = frame[y1_new:y2_new, x1_new:x2_new]
+
+                gray_face = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
+                face_resized = cv2.resize(gray_face, (48, 48))
+                img = extract_features(face_resized)
+
+                try:
                     pred = predict_emotion(self.model, img)
                     prediction_label = labels[pred.argmax()]
-                    self.logger.info(f"Prediction for frame {frame_count}: {prediction_label}")
                     predictions.append(prediction_label)
-            except cv2.error as e:
-                self.logger.error(f"OpenCV error: {e}")
-                pass
+                    self.logger.info(f"Frame {frame_count}: Detected emotion: {prediction_label}")
+                except Exception as e:
+                    self.logger.error(f"Error predicting emotion for frame {frame_count}: {e}")
+                    continue
 
         video.release()
 
@@ -92,3 +116,5 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
             Sad=percentages['Sad'],
             Surprised=percentages['Surprised']
         )
+
+
