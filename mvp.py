@@ -30,6 +30,10 @@ def predict_emotion(model, img):
 
 def getPercentages(predictions):
     
+    if not predictions:
+        print("No predictions generated. Returning empty percentages.")
+        return {}
+        
     percentages = []
     emotionCountMap = {
         'Angry': 0,
@@ -75,8 +79,7 @@ def main(video_path, predictions):
     face_cascade = load_face_cascade()
 
     # pass in video_path or 0 for webcam
-    video = cv2.VideoCapture("fv.mp4")
-
+    video = cv2.VideoCapture(video_path)
     # Define emotion labels
     labels = {0: 'Angry', 1: 'Disgusted', 2: 'Fearful', 3: 'Happy', 4: 'Neutral', 5: 'Sad', 6: 'Surprised'}
     counter = 0
