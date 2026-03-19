@@ -22,18 +22,17 @@ firebase_service = FirebaseImp(storage_bucket=storage_bucket)
 
 logger = logging.getLogger(__name__)
 
-def analyze_clip(emotion_analysis_service, video_path):
+def analyze_clip(emotion_analysis_service, video_path, interval_s=10):
     logger.info(f"Analyzing video: {video_path}")
     try:
-        result = emotion_analysis_service.get_emotion_percentages(video_path)
+        result = emotion_analysis_service.get_emotion_percentages(video_path, interval_s=interval_s)
         logger.info(f"Emotion analysis result: {result}")
-        result_dict = result if isinstance(result, dict) else result.__dict__
-        return result_dict
+        return result
     except Exception as e:
         logger.error(f"Failed to analyze video: {e}")
         return None
 
-def download_and_analyze_video(video_name):
+def download_and_analyze_video(video_name, interval_s=10):
     logger.info(f"Attempting to download video: {video_name} from storage.")
     try:
         local_path = f"static/videos/{video_name}"
@@ -61,11 +60,11 @@ def download_and_analyze_video(video_name):
     logger.info("Initializing emotion analysis.")
     emotion_analysis_service = EmotionsAnalysisImp(model_path="models/model2/model2.h5")
     start_analysis = time.time()
-    result = analyze_clip(emotion_analysis_service, video_path)
+    result = analyze_clip(emotion_analysis_service, video_path, interval_s=interval_s)
     end_analysis = time.time()
     logger.info(f"Time taken for analysis: {end_analysis - start_analysis} seconds")
 
-    return result  # retorna o objeto de emoções diretamente
+    return result
 
 @video_routes.route("/process_video", methods=["POST", "OPTIONS"])
 def process_video():
@@ -77,14 +76,19 @@ def process_video():
     if not video_name:
         return jsonify({"error": "Video name missing"}), 400
 
+    interval_s = request.json.get("interval_s", 10)
+
     try:
-        result = download_and_analyze_video(video_name)
+        result = download_and_analyze_video(video_name, interval_s=interval_s)
         delete_video()
     except Exception as e:
         logger.exception("Video processing failed")
         return jsonify({"error": "Video processing failed"}), 500
 
-    return jsonify({"emotions": result}), 200
+    if result is None:
+        return jsonify({"error": "No result from analysis"}), 500
+
+    return jsonify(result.model_dump()), 200
 
 
 @video_routes.route("/test", methods=["GET"])
