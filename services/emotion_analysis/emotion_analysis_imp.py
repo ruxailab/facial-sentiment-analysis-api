@@ -1,42 +1,44 @@
 import os
 from schemas.emotion_schema import GetEmotionPercentagesResponse
 from services.emotion_analysis.emotion_analysis_service import EmotionsAnalysisService
-import logging
-import coloredlogs
+from utils.logger import get_logger
 from utils.utils import load_model, load_face_cascade, extract_features, predict_emotion, getPercentages
 import cv2
+
+logger = get_logger(__name__)
+
 
 class EmotionsAnalysisImp(EmotionsAnalysisService):
     def __init__(self, model_path: str):
         self.model = load_model(model_path)
         self.face_cascade = load_face_cascade()
-        coloredlogs.install(level="INFO", fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        self.logger = logging.getLogger(__name__)
 
     def get_emotion_percentages(self, video_path: str) -> GetEmotionPercentagesResponse:
         predictions = []
         labels = {0: 'Angry', 1: 'Disgusted', 2: 'Fearful', 3: 'Happy', 4: 'Neutral', 5: 'Sad', 6: 'Surprised'}
-        self.logger.info(f"Loading video from path: {video_path}")
+        logger.info("Loading video from path: %s", video_path)
 
         if not os.path.exists(video_path):
-            self.logger.error(f"Video file does not exist: {video_path}")
+            logger.error("Video file does not exist: %s", video_path)
             directory = os.path.dirname(video_path)
             if os.path.exists(directory):
-                self.logger.info(f"Contents of the directory {directory}:")
+                logger.info("Contents of directory %s:", directory)
                 for item in os.listdir(directory):
-                    self.logger.info(f" - {item}")
+                    logger.info("  - %s", item)
             else:
-                self.logger.error(f"Directory does not exist: {directory}")
-            return GetEmotionPercentagesResponse(Angry=0, Disgusted=0, Fearful=0, Happy=0, Neutral=0, Sad=0, Surprised=0)
+                logger.error("Directory does not exist: %s", directory)
+            return GetEmotionPercentagesResponse(
+                Angry=0, Disgusted=0, Fearful=0, Happy=0, Neutral=0, Sad=0, Surprised=0
+            )
 
         video = cv2.VideoCapture(video_path)
         if not video.isOpened():
-            self.logger.error(f"Failed to open video file: {video_path}")
-            return GetEmotionPercentagesResponse(Angry=0, Disgusted=0, Fearful=0, Happy=0, Neutral=0, Sad=0, Surprised=0)
+            logger.error("Failed to open video file: %s", video_path)
+            return GetEmotionPercentagesResponse(
+                Angry=0, Disgusted=0, Fearful=0, Happy=0, Neutral=0, Sad=0, Surprised=0
+            )
 
         last_processed_second = -1
-
-    
         frame_count = 0
         processed_frames = 0
         face_count = 0
@@ -47,14 +49,13 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
                 break
 
             timestamp_ms = video.get(cv2.CAP_PROP_POS_MSEC)
-            current_second = int(timestamp_ms / 500 ) # 2 frame per second 
+            current_second = int(timestamp_ms / 500)  # 2 frames per second
 
             if current_second == last_processed_second:
                 continue
             last_processed_second = current_second
-            
-            frame_count += 1
 
+            frame_count += 1
             processed_frames += 1
             gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
             faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
@@ -66,23 +67,22 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
                     img = extract_features(image)
                     pred = predict_emotion(self.model, img)
                     prediction_label = labels[pred.argmax()]
-                    self.logger.info(f"Prediction for frame {frame_count}: {prediction_label}")
+                    logger.info("Prediction for frame %d: %s", frame_count, prediction_label)
                     predictions.append(prediction_label)
             except cv2.error as e:
-                self.logger.error(f"OpenCV error: {e}")
-                pass
+                logger.error("OpenCV error on frame %d: %s", frame_count, e)
 
         video.release()
 
-        self.logger.info(f"Total frames in video: {frame_count}")
-        self.logger.info(f"Frames actually processed: {processed_frames}")
-        self.logger.info(f"Total faces detected: {face_count}")
+        logger.info("Total frames in video: %d", frame_count)
+        logger.info("Frames actually processed: %d", processed_frames)
+        logger.info("Total faces detected: %d", face_count)
 
         if not predictions:
-            self.logger.warning("No faces detected or no predictions made.")
+            logger.warning("No faces detected or no predictions made.")
 
         percentages = getPercentages(predictions)
-        self.logger.info(f"Percentages of emotions detected: {percentages}")
+        logger.info("Emotion percentages: %s", percentages)
         return GetEmotionPercentagesResponse(
             Angry=percentages['Angry'],
             Disgusted=percentages['Disgusted'],
