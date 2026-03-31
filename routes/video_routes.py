@@ -6,19 +6,37 @@ from utils.utils import delete_video
 import time
 from dotenv import load_dotenv
 import os
+import requests
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
-from moviepy.editor import VideoFileClip
+from moviepy import VideoFileClip
 
 load_dotenv()
 
 video_routes = Blueprint("video_routes", __name__)
 
 storage_bucket = os.getenv("FIREBASE_STORAGE_BUCKET")
+use_local = os.getenv("USE_LOCAL_STORAGE", "false").lower() == "true"
 
-if not storage_bucket:
-    raise RuntimeError("FIREBASE_STORAGE_BUCKET not set")
+firebase_service = None
+storage_service = None
 
-firebase_service = FirebaseImp(storage_bucket=storage_bucket)
+def get_storage_service():
+    global storage_service
+
+    if storage_service is not None:
+        return storage_service
+
+    if use_local:
+        from services.data.local_storage_imp import LocalStorageImp
+        storage_service = LocalStorageImp()
+    else:
+        if not storage_bucket:
+            raise RuntimeError(
+                "Firebase not configured. Set FIREBASE_STORAGE_BUCKET or USE_LOCAL_STORAGE=true"
+            )
+        storage_service = FirebaseImp(storage_bucket=storage_bucket)
+
+    return storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +52,17 @@ def analyze_clip(emotion_analysis_service, video_path):
         return None
 
 def download_and_analyze_video(video_name):
+    # if not firebase_service:
+    #     raise RuntimeError(
+    #         "FIREBASE_STORAGE_BUCKET not set. Set it in your environment or a .env file."
+    #     )
+    storage_service = get_storage_service()
     logger.info(f"Attempting to download video: {video_name} from storage.")
     try:
         local_path = f"static/videos/{video_name}"
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
-        video_path = firebase_service.download_video_from_storage(video_name)
+        storage_service = get_storage_service()
+        video_path = storage_service.download_video_from_storage(video_name)
         logger.info(f"Video downloaded successfully to: {video_path}")
     except Exception as e:
         logger.error(f"Failed to download video: {e}")
@@ -49,7 +73,7 @@ def download_and_analyze_video(video_name):
         clip = VideoFileClip(video_path)
         if clip.fps > 1:
             logger.warning(f"High FPS detected ({clip.fps}). Reducing to 1fps.")
-            clip = clip.set_fps(1)
+            clip = clip.with_fps(1)
         trimmed_path = video_path.replace(".webm", "_trimmed.mp4")
         clip.write_videofile(trimmed_path, codec="libx264", audio=False, logger=None)
         video_path = trimmed_path
@@ -92,7 +116,7 @@ def call_hello_world():
     logger.info("Attempting to call test firebase function.")
     firebase_function_url = "https://europe-west1-backend-tfg-1d0d5.cloudfunctions.net/hello_world"
     try: 
-        response = request.get(firebase_function_url)
+        response = requests.get(firebase_function_url)
         if response.status_code == 200:
             return jsonify(response.json()), 200
         else:
