@@ -16,10 +16,13 @@ video_routes = Blueprint("video_routes", __name__)
 
 storage_bucket = os.getenv("FIREBASE_STORAGE_BUCKET")
 
-if not storage_bucket:
-    raise RuntimeError("FIREBASE_STORAGE_BUCKET not set")
-
-firebase_service = FirebaseImp(storage_bucket=storage_bucket)
+firebase_service = None
+if storage_bucket:
+    firebase_service = FirebaseImp(storage_bucket=storage_bucket)
+else:
+    logging.getLogger(__name__).warning(
+        "FIREBASE_STORAGE_BUCKET not set; /process_video will fail until configured."
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,10 @@ def analyze_clip(emotion_analysis_service, video_path):
         return None
 
 def download_and_analyze_video(video_name):
+    if not firebase_service:
+        raise RuntimeError(
+            "FIREBASE_STORAGE_BUCKET not set. Set it in your environment or a .env file."
+        )
     logger.info(f"Attempting to download video: {video_name} from storage.")
     try:
         local_path = f"static/videos/{video_name}"
