@@ -15,14 +15,28 @@ load_dotenv()
 video_routes = Blueprint("video_routes", __name__)
 
 storage_bucket = os.getenv("FIREBASE_STORAGE_BUCKET")
+use_local = os.getenv("USE_LOCAL_STORAGE", "false").lower() == "true"
 
 firebase_service = None
-if storage_bucket:
-    firebase_service = FirebaseImp(storage_bucket=storage_bucket)
-else:
-    logging.getLogger(__name__).warning(
-        "FIREBASE_STORAGE_BUCKET not set; /process_video will fail until configured."
-    )
+storage_service = None
+
+def get_storage_service():
+    global storage_service
+
+    if storage_service is not None:
+        return storage_service
+
+    if use_local:
+        from services.data.local_storage_imp import LocalStorageImp
+        storage_service = LocalStorageImp()
+    else:
+        if not storage_bucket:
+            raise RuntimeError(
+                "Firebase not configured. Set FIREBASE_STORAGE_BUCKET or USE_LOCAL_STORAGE=true"
+            )
+        storage_service = FirebaseImp(storage_bucket=storage_bucket)
+
+    return storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -38,15 +52,17 @@ def analyze_clip(emotion_analysis_service, video_path):
         return None
 
 def download_and_analyze_video(video_name):
-    if not firebase_service:
-        raise RuntimeError(
-            "FIREBASE_STORAGE_BUCKET not set. Set it in your environment or a .env file."
-        )
+    # if not firebase_service:
+    #     raise RuntimeError(
+    #         "FIREBASE_STORAGE_BUCKET not set. Set it in your environment or a .env file."
+    #     )
+    storage_service = get_storage_service()
     logger.info(f"Attempting to download video: {video_name} from storage.")
     try:
         local_path = f"static/videos/{video_name}"
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
-        video_path = firebase_service.download_video_from_storage(video_name)
+        storage_service = get_storage_service()
+        video_path = storage_service.download_video_from_storage(video_name)
         logger.info(f"Video downloaded successfully to: {video_path}")
     except Exception as e:
         logger.error(f"Failed to download video: {e}")
