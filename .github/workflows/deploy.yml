@@ -3,6 +3,7 @@
 # Required GitHub Secrets:
 #   - GCP_SA_KEY: JSON key for a GCP service account with Artifact Registry
 #     Writer, Cloud Run Admin, and Service Account User roles
+#   - FIREBASE_STORAGE_BUCKET: Firebase Storage bucket name
 
 name: Deploy to Cloud Run
 
@@ -11,11 +12,16 @@ on:
     branches:
       - main
     paths:
-      - "app/**"
+      - "app.py"
+      - "routes/**"
+      - "services/**"
+      - "utils/**"
+      - "schemas/**"
+      - "models/**"
       - ".github/workflows/**"
       - "Dockerfile"
-      - "scripts/**"
-      - "config.yaml"
+      - "pyproject.toml"
+      - "poetry.lock"
 
 concurrency:
   group: deploy-cloud-run
@@ -25,8 +31,8 @@ env:
   PROJECT_ID: ruxailab-develop
   REGION: us-central1
   REPO: containers
-  IMAGE: sentiment-analysis-api
-  SERVICE: sentiment-analysis-api
+  IMAGE: facial-sentiment-analysis-api
+  SERVICE: facial-sentiment-analysis-api
 
 jobs:
   build:
@@ -87,7 +93,9 @@ jobs:
             --allow-unauthenticated \
             --cpu 2 \
             --memory 4Gi \
-            --port 8001
+            --port 8080 \
+            --cpu-boost \
+            --set-env-vars "FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}"
 
       - name: Delete image from Artifact Registry
         env:
