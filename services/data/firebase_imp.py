@@ -1,8 +1,9 @@
+import os
 import firebase_admin
 import logging
 import coloredlogs
 
-from firebase_admin import firestore, storage
+from firebase_admin import firestore, storage, credentials
 from services.data.firebase_service import FirebaseService
 
 
@@ -24,11 +25,29 @@ class FirebaseImp(FirebaseService):
         self.storage_client = storage.bucket()
 
     def _initialize_app(self):
+        if os.getenv('USE_EMULATORS', '').lower() == 'true':
+
+            emulator_host = os.getenv('FIREBASE_EMULATOR_HOST', 'localhost')
+            storage_port = os.getenv('STORAGE_EMULATOR_PORT', '9199')
+            firestore_port = os.getenv('FIRESTORE_EMULATOR_PORT', '8080')
+            
+            os.environ['STORAGE_EMULATOR_HOST'] =  f"http://{emulator_host}:{storage_port}"
+            os.environ['FIRESTORE_EMULATOR_HOST'] = f"{emulator_host}:{firestore_port}"
+            
+            options = {
+                "storageBucket": self.storage_bucket,
+                "projectId": os.getenv('FIREBASE_PROJECT_ID')
+            }
+
+        else:
+
+            options = {
+                "storageBucket": self.storage_bucket
+            }
+    
         if not firebase_admin._apps:
             firebase_admin.initialize_app(
-                options={
-                    "storageBucket": self.storage_bucket
-                }
+                options=options
             )
 
     def download_video_from_storage(self, video_name: str):
