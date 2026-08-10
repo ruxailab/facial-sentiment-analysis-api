@@ -29,4 +29,5 @@ COPY . .
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "1", "--timeout", "0", "app:app"]
+# Cloud Run injects PORT; bind dynamically so --port in deploy matches.
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --threads 1 --timeout 0 app:app"]
