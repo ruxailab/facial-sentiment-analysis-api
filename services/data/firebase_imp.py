@@ -25,26 +25,26 @@ class FirebaseImp(FirebaseService):
         self.storage_client = storage.bucket()
 
     def _initialize_app(self):
-        if os.getenv('USE_EMULATORS', '').lower() == 'true':
+        use_storage_emulator = os.getenv('USE_STORAGE_EMULATOR', '').lower() == 'true'
+        use_firestore_emulator = os.getenv('USE_FIRESTORE_EMULATOR', '').lower() == 'true'
 
-            emulator_host = os.getenv('FIREBASE_EMULATOR_HOST', 'localhost')
+        emulator_host = os.getenv('FIREBASE_EMULATOR_HOST', 'localhost')
+
+        if use_storage_emulator:
             storage_port = os.getenv('STORAGE_EMULATOR_PORT', '9199')
+            os.environ['STORAGE_EMULATOR_HOST'] = f"http://{emulator_host}:{storage_port}"
+
+        if use_firestore_emulator:
             firestore_port = os.getenv('FIRESTORE_EMULATOR_PORT', '8080')
-            
-            os.environ['STORAGE_EMULATOR_HOST'] =  f"http://{emulator_host}:{storage_port}"
             os.environ['FIRESTORE_EMULATOR_HOST'] = f"{emulator_host}:{firestore_port}"
-            
-            options = {
-                "storageBucket": self.storage_bucket,
-                "projectId": os.getenv('FIREBASE_PROJECT_ID')
-            }
 
-        else:
+        options = {
+            "storageBucket": self.storage_bucket
+        }
 
-            options = {
-                "storageBucket": self.storage_bucket
-            }
-    
+        if use_storage_emulator or use_firestore_emulator:
+            options["projectId"] = os.getenv('FIREBASE_PROJECT_ID')
+
         if not firebase_admin._apps:
             firebase_admin.initialize_app(
                 options=options
