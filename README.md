@@ -89,3 +89,39 @@ poetry run python -u app.py
 - **POST /process_video:** Initiates emotion analysis on the uploaded video.
 - **GET /test:** Calls a Firebase function for testing purposes.
 
+## Deployment
+
+The API is deployed as a **CPU-only** Dockerized Flask service on **Google Cloud Run**. Shared deploy logic lives in [`.github/workflows/deploy-reusable.yml`](.github/workflows/deploy-reusable.yml); callers trigger it per branch:
+
+| Branch | Workflow | GCP project | Cloud Run service |
+|---|---|---|---|
+| `main` | [`deploy-prod.yml`](.github/workflows/deploy-prod.yml) | `ruxailab-prod` | `facial-sentiment-analysis-api` |
+| `develop` | [`deploy-dev.yml`](.github/workflows/deploy-dev.yml) | `ruxailab-develop` | `facial-sentiment-analysis-api` |
+
+| Setting | Value |
+|---|---|
+| Region | `us-central1` |
+| Artifact Registry repo | `containers` |
+| Image | `facial-sentiment-analysis-api` |
+| Resources | 2 CPU · 4 Gi memory · port 8080 · CPU boost |
+
+### Prerequisites
+
+- Google Cloud project with billing enabled (`ruxailab-prod` / `ruxailab-develop`)
+- Artifact Registry repository `containers` in `us-central1`
+- APIs enabled: Artifact Registry, Cloud Run
+- GitHub repository secrets:
+  - **`GCP_SA_KEY_PROD`** / **`GCP_SA_KEY_DEV`** — JSON keys for each environment's GCP service account
+  - **`FIREBASE_STORAGE_BUCKET_PROD`** / **`FIREBASE_STORAGE_BUCKET_DEV`** — Firebase Storage bucket names
+
+Each caller maps its environment-specific secrets to the generic names expected by the reusable workflow (`GCP_SA_KEY`, `FIREBASE_STORAGE_BUCKET`). The service account needs Artifact Registry Writer, Cloud Run Admin, and Service Account User.
+
+### Automatic deploy
+
+1. Configure the secrets above in the GitHub repository settings.
+2. Push (or merge) to `main` (prod) or `develop` (dev), with changes under `app.py`, `routes/**`, `services/**`, `utils/**`, `schemas/**`, `models/**`, `.github/workflows/**`, `Dockerfile`, `pyproject.toml`, or `poetry.lock`.
+3. The workflow will:
+   - Authenticate to GCP with `GCP_SA_KEY_PROD` or `GCP_SA_KEY_DEV`
+   - Build and push `us-central1-docker.pkg.dev/<project>/containers/facial-sentiment-analysis-api:sha-<short-sha>`
+   - Deploy the image to Cloud Run (with `FIREBASE_STORAGE_BUCKET`), then delete the Artifact Registry image tag
+
