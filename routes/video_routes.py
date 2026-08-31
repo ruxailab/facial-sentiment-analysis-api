@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 import logging
 from services.data.firebase_imp import FirebaseImp
 from services.emotion_analysis.emotion_analysis_imp import EmotionsAnalysisImp
+from services.report.summary_generator import generate_summary
 from utils.utils import delete_video
 import time
 from dotenv import load_dotenv
@@ -85,6 +86,46 @@ def process_video():
         return jsonify({"error": "Video processing failed"}), 500
 
     return jsonify({"emotions": result}), 200
+
+
+@video_routes.route("/process_video_summary", methods=["POST", "OPTIONS"])
+def process_video_summary():
+    """Analyze a video and return a human-readable emotion summary.
+
+    This endpoint performs the same emotion analysis as ``/process_video``
+    but additionally generates a natural-language summary suitable for
+    non-technical stakeholders such as UX researchers and designers.
+
+    Request JSON body:
+        ``{ "video_name": "<name-in-firebase-storage>" }``
+
+    Response JSON includes both raw ``emotions`` percentages and a
+    ``summary`` object with keys:
+    - ``overall_sentiment`` – e.g. "Positive", "Negative", "Mixed"
+    - ``top_emotions`` – sentence describing the top detected emotions
+    - ``ux_insight`` – brief UX-oriented interpretation
+    - ``full_summary`` – combined paragraph for reports
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+
+    video_name = request.json.get("video_name")
+    if not video_name:
+        return jsonify({"error": "Video name missing"}), 400
+
+    try:
+        result = download_and_analyze_video(video_name)
+        delete_video()
+    except Exception as e:
+        logger.exception("Video processing failed")
+        return jsonify({"error": "Video processing failed"}), 500
+
+    if result is None:
+        return jsonify({"error": "Analysis returned no results"}), 500
+
+    summary = generate_summary(result, video_name=video_name)
+
+    return jsonify({"emotions": result, "summary": summary}), 200
 
 
 @video_routes.route("/test", methods=["GET"])
