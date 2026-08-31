@@ -1,0 +1,37 @@
+# Deploy Facial Sentiment Analysis API to Cloud Run (development).
+# Triggered on push to develop.
+
+name: Deploy Development
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "app.py"
+      - "routes/**"
+      - "services/**"
+      - "utils/**"
+      - "schemas/**"
+      - "models/**"
+      - ".github/workflows/**"
+      - "Dockerfile"
+      - "pyproject.toml"
+      - "poetry.lock"
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+jobs:
+  Deploy:
+    uses: ./.github/workflows/deploy-reusable.yml
+    with:
+      project_id: ruxailab-develop
+      region: us-central1
+      repo: containers
+      image: facial-sentiment-analysis-api
+      service: facial-sentiment-analysis-api
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY_DEV }}
+      FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET_DEV }}
