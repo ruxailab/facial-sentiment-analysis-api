@@ -4,7 +4,10 @@ import tensorflow as tf
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 import os
 import shutil
-    
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def load_model(model_path: str):
     return tf.keras.models.load_model(model_path)
@@ -30,8 +33,8 @@ def getPercentages(predictions):
         percentages = {emotion: round((count / len(predictions) * 100), 2) for emotion, count in emotion_count_map.items()}
     return percentages
 
-#Delete /static/videos/ content
 def delete_video():
+    """Remove all files and subdirectories under static/videos/."""
     folder = "static/videos/"
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
@@ -40,30 +43,29 @@ def delete_video():
                 os.unlink(file_path)
             elif os.path.isdir(file_path):
                 shutil.rmtree(file_path)
+            logger.debug("Deleted: %s", file_path)
         except Exception as e:
-            print('Failed to delete %s. Reason: %s' % (file_path, e))
+            logger.error("Failed to delete %s: %s", file_path, e)
 
-#Split videos
 def split_video_into_clips(video_path):
-    #Get video length
+    """Split a video into 15-second clips and move them to static/videos/."""
     cap = cv2.VideoCapture(video_path)
-
     fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) #we get the total number of frames of the video
-    seconds = frame_count/fps
-    print(f'Video length: {int(seconds)} seconds')
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    seconds = frame_count / fps
     cap.release()
+
+    logger.info("Video length: %d seconds", int(seconds))
+
     video_paths = []
-    #Split video into clips of 10 seconds
     for i in range(0, int(seconds), 10):
         starttime = i
-        endtime = i+15 
-        targetname = str(i)+".mp4"
-        video_paths.append('static/videos/'+targetname)
+        endtime = i + 15
+        targetname = str(i) + ".mp4"
+        video_paths.append('static/videos/' + targetname)
         ffmpeg_extract_subclip(video_path, starttime, endtime, targetname=targetname)
-        #move the video to the clips folder
-        print(f"Moving {targetname} to clips folder")
-        #show acutal path
-        print(os.path.abspath(targetname))
+        logger.debug("Moving clip %s to static/videos/", targetname)
+        logger.debug("Absolute path: %s", os.path.abspath(targetname))
         shutil.move(targetname, 'static/videos/')
+
     return video_paths

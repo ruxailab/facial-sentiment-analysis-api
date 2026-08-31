@@ -1,15 +1,17 @@
 from flask import Flask
 from routes.video_routes import video_routes
-import logging
-import coloredlogs
+from utils.logger import get_logger
 from dotenv import load_dotenv
 import os
 from flask_cors import CORS
 
 load_dotenv()
 
-app = Flask(__name__)
+# Initialize logger at module level so Cloud Run deployments
+# get structured logging - not just local `python app.py` runs.
+logger = get_logger(__name__)
 
+app = Flask(__name__)
 CORS(
     app,
     resources={r"/*": {
@@ -20,22 +22,14 @@ CORS(
     }},
     supports_credentials=True
 )
-
 app.register_blueprint(video_routes)
-
 app.config["DEBUG"] = os.environ.get("FLASK_DEBUG", False)
 
+logger.info("Application initialised (routes registered, CORS configured)")
+
 if __name__ == "__main__":
-    coloredlogs.install(
-        level="INFO",
-        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-
-    logger = logging.getLogger(__name__)
-    logger.info("Starting the application")
-
-    # 🔁 Local
+    logger.info("Starting development server on localhost:5000")
+    # Local development server
     app.run(host="localhost", port=5000)
-
-    # ☁️ Cloud Run (comentado localmente)
+    # Cloud Run - uncomment for deployment
     # app.run(host="0.0.0.0", port=8080)
