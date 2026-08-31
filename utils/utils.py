@@ -4,7 +4,6 @@ import tensorflow as tf
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 import os
 import shutil
-    
 
 def load_model(model_path: str):
     return tf.keras.models.load_model(model_path)

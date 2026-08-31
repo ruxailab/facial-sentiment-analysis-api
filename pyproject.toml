@@ -30,6 +30,10 @@ moviepy = "^1.0.3"
 python-dotenv = "^1.0.1"
 flask-cors = "^4.0.1"
 gunicorn = "^22.0.0"
+torch = "^2.10.0"
+torchvision = "^0.25.0"
+insightface = "^0.7.3"
+onnxruntime = "^1.24.3"
 
 
 [build-system]
