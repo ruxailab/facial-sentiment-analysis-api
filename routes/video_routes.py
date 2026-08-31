@@ -6,8 +6,9 @@ from utils.utils import delete_video
 import time
 from dotenv import load_dotenv
 import os
+import requests
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
-from moviepy.editor import VideoFileClip
+from moviepy import VideoFileClip
 
 load_dotenv()
 
@@ -49,7 +50,7 @@ def download_and_analyze_video(video_name):
         clip = VideoFileClip(video_path)
         if clip.fps > 1:
             logger.warning(f"High FPS detected ({clip.fps}). Reducing to 1fps.")
-            clip = clip.set_fps(1)
+            clip = clip.with_fps(1)
         trimmed_path = video_path.replace(".webm", "_trimmed.mp4")
         clip.write_videofile(trimmed_path, codec="libx264", audio=False, logger=None)
         video_path = trimmed_path
@@ -92,7 +93,7 @@ def call_hello_world():
     logger.info("Attempting to call test firebase function.")
     firebase_function_url = "https://europe-west1-backend-tfg-1d0d5.cloudfunctions.net/hello_world"
     try: 
-        response = request.get(firebase_function_url)
+        response = requests.get(firebase_function_url)
         if response.status_code == 200:
             return jsonify(response.json()), 200
         else:
