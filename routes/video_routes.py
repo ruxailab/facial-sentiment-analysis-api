@@ -3,11 +3,8 @@ import logging
 from services.data.firebase_imp import FirebaseImp
 from services.emotion_analysis.emotion_analysis_imp import EmotionsAnalysisImp
 from utils.utils import delete_video
-import time
 from dotenv import load_dotenv
 import os
-from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
-from moviepy.editor import VideoFileClip
 
 load_dotenv()
 
@@ -22,7 +19,9 @@ firebase_service = FirebaseImp(storage_bucket=storage_bucket)
 
 logger = logging.getLogger(__name__)
 
-def analyze_clip(emotion_analysis_service, video_path):
+emotion_analysis_service = EmotionsAnalysisImp(model_path="models/model2/model2.h5")
+
+def analyze_clip(video_path):
     logger.info(f"Analyzing video: {video_path}")
     try:
         result = emotion_analysis_service.get_emotion_percentages(video_path)
@@ -44,28 +43,9 @@ def download_and_analyze_video(video_name):
         logger.error(f"Failed to download video: {e}")
         return None
 
-    # Ajusta FPS do vídeo para 1 frame por segundo
-    try:
-        clip = VideoFileClip(video_path)
-        if clip.fps > 1:
-            logger.warning(f"High FPS detected ({clip.fps}). Reducing to 1fps.")
-            clip = clip.set_fps(1)
-        trimmed_path = video_path.replace(".webm", "_trimmed.mp4")
-        clip.write_videofile(trimmed_path, codec="libx264", audio=False, logger=None)
-        video_path = trimmed_path
-        logger.info(f"Trimmed video saved: {video_path}")
-    except Exception as e:
-        logger.warning(f"Failed to trim video, continuing anyway: {e}")
-
-    # Análise de emoções
-    logger.info("Initializing emotion analysis.")
-    emotion_analysis_service = EmotionsAnalysisImp(model_path="models/model2/model2.h5")
-    start_analysis = time.time()
-    result = analyze_clip(emotion_analysis_service, video_path)
-    end_analysis = time.time()
-    logger.info(f"Time taken for analysis: {end_analysis - start_analysis} seconds")
-
-    return result  # retorna o objeto de emoções diretamente
+    # Sampling (~2 FPS) is handled in EmotionsAnalysisImp; no MoviePy re-encode.
+    logger.info(f"Analyzing downloaded video directly: {video_path}")
+    return analyze_clip(video_path)
 
 @video_routes.route("/process_video", methods=["POST", "OPTIONS"])
 def process_video():

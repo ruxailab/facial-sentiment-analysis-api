@@ -14,11 +14,23 @@ def load_face_cascade():
     return cv2.CascadeClassifier(haar_file)
 
 def extract_features(image):
-    feature = np.array(image).reshape(1, 48, 48, 1) / 255.0
-    return feature
+    return np.asarray(image, dtype=np.float32).reshape(48, 48, 1) / 255.0
 
 def predict_emotion(model, img):
-    return model.predict(img)
+    batch = img if img.ndim == 4 else np.expand_dims(img, axis=0)
+    return predict_emotions_batch(model, batch)[0]
+
+def predict_emotions_batch(model, images):
+    """Run emotion inference for a batch of face images shaped (N, 48, 48, 1)."""
+    if isinstance(images, list):
+        if not images:
+            return np.empty((0, 7), dtype=np.float32)
+        batch = np.stack(images, axis=0)
+    else:
+        batch = np.asarray(images)
+        if batch.ndim == 3:
+            batch = np.expand_dims(batch, axis=0)
+    return model.predict_on_batch(batch)
 
 def getPercentages(predictions):
     emotion_count_map = {emotion: 0 for emotion in ['Angry', 'Disgusted', 'Fearful', 'Happy', 'Neutral', 'Sad', 'Surprised']}

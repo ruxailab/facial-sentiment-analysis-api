@@ -3,10 +3,12 @@ from schemas.emotion_schema import GetEmotionPercentagesResponse
 from services.emotion_analysis.emotion_analysis_service import EmotionsAnalysisService
 import logging
 import coloredlogs
-from utils.utils import load_model, load_face_cascade, extract_features, predict_emotion, getPercentages
+from utils.utils import load_model, load_face_cascade, extract_features, predict_emotions_batch, getPercentages
 import cv2
 
 class EmotionsAnalysisImp(EmotionsAnalysisService):
+    PREDICT_BATCH_SIZE = 32
+
     def __init__(self, model_path: str):
         self.model = load_model(model_path)
         self.face_cascade = load_face_cascade()
@@ -36,10 +38,23 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
 
         last_processed_second = -1
 
-    
         frame_count = 0
         processed_frames = 0
         face_count = 0
+        face_batch = []
+
+        def flush_face_batch():
+            if not face_batch:
+                return
+            preds = predict_emotions_batch(self.model, face_batch)
+            for pred in preds:
+                prediction_label = labels[int(pred.argmax())]
+                predictions.append(prediction_label)
+            self.logger.info(
+                f"Batch predict: {len(face_batch)} faces -> "
+                f"{[labels[int(p.argmax())] for p in preds]}"
+            )
+            face_batch.clear()
 
         while True:
             ret, im = video.read()
@@ -63,15 +78,14 @@ class EmotionsAnalysisImp(EmotionsAnalysisService):
                     face_count += 1
                     image = gray[q:q + s, p:p + r]
                     image = cv2.resize(image, (48, 48))
-                    img = extract_features(image)
-                    pred = predict_emotion(self.model, img)
-                    prediction_label = labels[pred.argmax()]
-                    self.logger.info(f"Prediction for frame {frame_count}: {prediction_label}")
-                    predictions.append(prediction_label)
+                    face_batch.append(extract_features(image))
+                    if len(face_batch) >= self.PREDICT_BATCH_SIZE:
+                        flush_face_batch()
             except cv2.error as e:
                 self.logger.error(f"OpenCV error: {e}")
                 pass
 
+        flush_face_batch()
         video.release()
 
         self.logger.info(f"Total frames in video: {frame_count}")
